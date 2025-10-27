@@ -1,12 +1,17 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AI Experiment Log</title>
+
+  <!-- Pico.css only -->
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css" />
 
   <style>
+    /* Minimal, only small tweaks on top of pico.css.
+       Removed the browser's blue focus/margin Ring for the tab buttons
+       while preserving keyboard focus using :focus-visible if you want to restore later. */
     :root {
       --card-max-width: 900px;
       --table-visible-rows: 10;
@@ -17,17 +22,18 @@
       padding-top: 2rem;
     }
 
-    /* -------------------- TABS -------------------- */
-
+    /* Tabs: keep very small customizations, rely on pico for visuals */
     .tabs {
       display: flex;
       border-bottom: 1px solid var(--muted-border-color);
       margin-bottom: 1rem;
       overflow-x: auto;
-      padding-left: 0; /* Fix left margin issue */
+      padding-left: 0;
     }
 
     .tabs button {
+      appearance: none;
+      -webkit-appearance: none;
       border: none;
       background: none;
       padding: .75rem 1.25rem;
@@ -38,15 +44,21 @@
       border-bottom: 3px solid transparent;
       transition: color .25s, border-color .25s;
       flex-shrink: 0;
+      /* Remove the default blue focus ring */
+      outline: none;
+      box-shadow: none;
     }
+
+    /* If you want an accessible focus indicator, uncomment the rule below:
+    .tabs button:focus-visible {
+      outline: 3px solid rgba(0,123,255,0.25);
+      outline-offset: 2px;
+    }
+    */
 
     .tabs button.active {
       color: var(--primary);
       border-bottom-color: var(--primary);
-    }
-
-    .tabs button:hover {
-      color: var(--primary);
     }
 
     .tab-content {
@@ -58,8 +70,7 @@
       display: block;
     }
 
-    /* -------------------- CARDS -------------------- */
-
+    /* Cards: minimal styling */
     article.question-card {
       max-width: var(--card-max-width);
       margin-inline: auto;
@@ -76,18 +87,16 @@
       color: var(--contrast);
     }
 
-    /* -------------------- TABLE SCROLL -------------------- */
-
+    /* Table scroll */
     .table-scroll {
       max-height: calc(1.75rem * var(--table-visible-rows));
       overflow-y: auto;
       margin-top: 1rem;
     }
 
-    pre { margin: 0; white-space: pre-wrap; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
 
-    /* -------------------- LOADER -------------------- */
-
+    /* Tiny spinner */
     .spinner {
       width: 1rem; height: 1rem;
       border: 2px solid var(--muted-border-color);
@@ -95,6 +104,7 @@
       border-radius: 50%;
       display: inline-block;
       animation: spin 1s linear infinite;
+      vertical-align: middle;
     }
     @keyframes spin { to { transform: rotate(360deg);} }
 
