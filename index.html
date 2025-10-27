@@ -79,8 +79,16 @@
         if (!rows.length) return status.textContent = "No rows yet.";
 
         rows.forEach((line, i) => {
-          const [ans, date] = line.split(/,(.+)/);
-          tbody.innerHTML += `<tr><td>${i+1}</td><td>${escapeHTML(ans)}</td><td>${escapeHTML(date)}</td></tr>`;
+          const lastComma = line.lastIndexOf(",");
+          const ans = line.slice(0, lastComma);
+          const date = line.slice(lastComma + 1);
+        
+          tbody.innerHTML += `
+            <tr>
+              <td>${i+1}</td>
+              <td>${escapeHTML(ans)}</td>
+              <td>${escapeHTML(date)}</td>
+            </tr>`;
         });
 
         status.classList.add("hidden");
