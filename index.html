@@ -9,7 +9,7 @@
   <style>
     :root {
       --card-max-width: 900px;
-      --table-visible-rows: 10; /* Change this to show more/less before scroll */
+      --table-visible-rows: 10;
     }
 
     main.container {
@@ -17,36 +17,49 @@
       padding-top: 2rem;
     }
 
-    /* Tabs Layout */
+    /* -------------------- TABS -------------------- */
+
     .tabs {
-  display: flex;
-  border-bottom: 1px solid var(--muted-border-color);
-  margin-bottom: 1rem;
-  overflow-x: auto;
-  gap: .25rem;
-}
+      display: flex;
+      border-bottom: 1px solid var(--muted-border-color);
+      margin-bottom: 1rem;
+      overflow-x: auto;
+      padding-left: 0; /* Fix left margin issue */
+    }
 
-.tabs button {
-  border: none;
-  background: none;
-  padding: .75rem 1.25rem;
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--muted-color);
-  transition: color .25s, border-color .25s;
-  border-bottom: 3px solid transparent;
-}
+    .tabs button {
+      border: none;
+      background: none;
+      padding: .75rem 1.25rem;
+      cursor: pointer;
+      font-weight: 600;
+      margin: 0;
+      color: var(--muted-color);
+      border-bottom: 3px solid transparent;
+      transition: color .25s, border-color .25s;
+      flex-shrink: 0;
+    }
 
-.tabs button:hover {
-  color: var(--primary);
-}
+    .tabs button.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
 
-.tabs button.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-}
+    .tabs button:hover {
+      color: var(--primary);
+    }
 
-    /* Cards */
+    .tab-content {
+      display: none;
+      padding-top: 1rem;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* -------------------- CARDS -------------------- */
+
     article.question-card {
       max-width: var(--card-max-width);
       margin-inline: auto;
@@ -60,11 +73,11 @@
       font-size: 1.25rem;
       font-weight: 700;
       margin-bottom: .5rem;
-      color: var(--contrast); /* <-- This makes it readable in both themes */
+      color: var(--contrast);
     }
 
+    /* -------------------- TABLE SCROLL -------------------- */
 
-    /* Table Scroll but allow ~10 rows visible */
     .table-scroll {
       max-height: calc(1.75rem * var(--table-visible-rows));
       overflow-y: auto;
@@ -73,7 +86,8 @@
 
     pre { margin: 0; white-space: pre-wrap; }
 
-    /* Loader */
+    /* -------------------- LOADER -------------------- */
+
     .spinner {
       width: 1rem; height: 1rem;
       border: 2px solid var(--muted-border-color);
@@ -112,6 +126,7 @@
   ];
 
   const escapeHTML = s => s.replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
+
   function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/).slice(1);
     const rows = []; let buffer = "";
@@ -123,6 +138,7 @@
     }
     return rows;
   }
+
   function splitAnswerDate(line) {
     const i = line.lastIndexOf(",");
     return [line.slice(0, i), line.slice(i + 1)];
@@ -161,13 +177,11 @@
     const tabContents = document.getElementById("tab-contents");
 
     QUESTIONS.forEach((q, index) => {
-      // Tab button
       const btn = document.createElement("button");
-      btn.textContent = `Question ${index+1}`;
+      btn.textContent = `Question ${index + 1}`;
       btn.onclick = () => switchTab(index);
       tabButtons.appendChild(btn);
 
-      // Card content
       const content = document.createElement("section");
       content.className = "tab-content";
       content.innerHTML = `
@@ -187,8 +201,12 @@
     });
 
     function switchTab(i) {
-      document.querySelectorAll(".tabs button").forEach((b, j)=> b.classList.toggle("active", j===i));
-      document.querySelectorAll(".tab-content").forEach((c, j)=> c.classList.toggle("active", j===i));
+      document.querySelectorAll(".tabs button").forEach((b, j) =>
+        b.classList.toggle("active", j === i)
+      );
+      document.querySelectorAll(".tab-content").forEach((c, j) =>
+        c.classList.toggle("active", j === i)
+      );
     }
 
     switchTab(0);
