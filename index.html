@@ -6,12 +6,31 @@
   <title>AI Experiment Log</title>
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css" />
 
+  <style>
+    :root { --card-max-width: 900px; }
+    .grid-cards { display: grid; gap: 1.25rem; }
+    article.question-card { max-width: var(--card-max-width); margin-inline: auto; }
+    .question { font-size: 1.1rem; font-weight: 700; }
+
+    .table-scroll { max-height: 220px; overflow-y: auto; }
+    .hidden { display: none !important; }
+
+    .spinner {
+      width: 1rem; height: 1rem;
+      border: 2px solid var(--muted-border-color);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
   <main class="container">
     <header>
       <h1>AI Experiment Log</h1>
-      <p class="subtle">Multiple questions, each with a live answer log from Google Sheets (CSV publish).</p>
+      <p class="subtle">Multiple questions, auto-logged from Google Sheets.</p>
     </header>
 
     <section id="questions" class="grid-cards"></section>
@@ -21,85 +40,58 @@
     const QUESTIONS = [
       {
         text: "What is the largest number: 27483 or 27482?",
-        sheetURL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=0&single=true&output=csv"
+        sheetURL:
+          "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=0&single=true&output=csv"
       }
     ];
 
-    const escapeHTML = (str) => String(str)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;');
+    const escapeHTML = (s) => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
-    function buildCard({ text }) {
-      const article = document.createElement('article');
-      article.className = 'question-card';
-      article.innerHTML = `
-        <header><div class="question">${escapeHTML(text)}</div></header>
-        <div class="status" aria-live="polite"><span class="spinner"></span><span>Loading answers…</span></div>
+    function createCard(q) {
+      const el = document.createElement("article");
+      el.className = "question-card";
+      el.innerHTML = `
+        <header><div class="question">${escapeHTML(q.text)}</div></header>
+        <div class="status"><span class="spinner"></span> Loading answers…</div>
         <div class="table-scroll hidden">
-          <table role="grid">
-            <caption>AI Answer Log (Live)</caption>
+          <table>
+            <caption>AI Answer Log</caption>
             <thead><tr><th>#</th><th>Answer</th><th>Date</th></tr></thead>
             <tbody></tbody>
           </table>
-        </div>
-      `;
-      return article;
+        </div>`;
+      return el;
     }
 
-    async function fetchCSV(url) {
-      const sep = url.includes('?') ? '&' : '?';
-      const res = await fetch(url + sep + '_=' + Date.now());
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    }
+    async function loadAnswers(card, url) {
+      const status = card.querySelector(".status");
+      const container = card.querySelector(".table-scroll");
+      const tbody = container.querySelector("tbody");
 
-    function parseSimpleCSV(text) {
-      const lines = text.trim().split(/\r?\n/);
-      return lines.slice(1).map(line => {
-        const match = line.match(/^(?:\"([^\"]*)\"|([^,]*)),(.*)$/);
-        if (match) return [match[1] ?? match[2] ?? '', match[3] ?? ''];
-        const [a, b] = line.split(/,(.+)/);
-        return [a ?? '', b ?? ''];
-      });
-    }
-
-    function populateTable(article, rows) {
-      const status = article.querySelector('.status');
-      const scrollBox = article.querySelector('.table-scroll');
-      const tbody = scrollBox.querySelector('tbody');
-      tbody.innerHTML = '';
-
-      if (!rows.length) {
-        status.innerHTML = '<span>No rows yet.</span>';
-        scrollBox.classList.add('hidden');
-        return;
-      }
-
-      rows.forEach((row, i) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${i + 1}</td><td>${escapeHTML(row[0])}</td><td>${escapeHTML(row[1])}</td>`;
-        tbody.appendChild(tr);
-      });
-
-      status.classList.add('hidden');
-      scrollBox.classList.remove('hidden');
-    }
-
-    async function loadQuestion(container, q) {
-      const card = buildCard(q);
-      container.appendChild(card);
       try {
-        const csv = await fetchCSV(q.sheetURL);
-        populateTable(card, parseSimpleCSV(csv));
-      } catch (err) {
-        card.querySelector('.status').innerHTML = `<span>Could not load data.</span> <small class="subtle">(${escapeHTML(err.message)})</small>`;
+        const text = await fetch(url + "&_=" + Date.now()).then(r => r.text());
+        const rows = text.trim().split(/\n/).slice(1);
+        if (!rows.length) return status.textContent = "No rows yet.";
+
+        rows.forEach((line, i) => {
+          const [ans, date] = line.split(/,(.+)/);
+          tbody.innerHTML += `<tr><td>${i+1}</td><td>${escapeHTML(ans)}</td><td>${escapeHTML(date)}</td></tr>`;
+        });
+
+        status.classList.add("hidden");
+        container.classList.remove("hidden");
+      } catch {
+        status.textContent = "Error loading data.";
       }
     }
 
     (function init() {
-      const container = document.getElementById('questions');
-      QUESTIONS.forEach(q => loadQuestion(container, q));
+      const root = document.getElementById("questions");
+      QUESTIONS.forEach(q => {
+        const card = createCard(q);
+        root.appendChild(card);
+        loadAnswers(card, q.sheetURL);
+      });
     })();
   </script>
 </body>
