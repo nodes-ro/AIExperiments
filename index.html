@@ -7,15 +7,69 @@
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css" />
 
   <style>
-    :root { --card-max-width: 900px; }
-    .grid-cards { display: grid; gap: 1.25rem; }
-    article.question-card { max-width: var(--card-max-width); margin-inline: auto; }
-    .question { font-size: 1.1rem; font-weight: 700; }
+    :root {
+      --card-max-width: 900px;
+      --table-visible-rows: 10; /* Change this to show more/less before scroll */
+    }
 
-    .table-scroll { max-height: 220px; overflow-y: auto; }
-    .hidden { display: none !important; }
+    main.container {
+      max-width: 1050px;
+      padding-top: 2rem;
+    }
+
+    /* Tabs Layout */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--muted-border-color);
+      margin-bottom: 1rem;
+      overflow-x: auto;
+    }
+    .tabs button {
+      border: none;
+      padding: .75rem 1.25rem;
+      background: transparent;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .tabs button.active {
+      border-bottom: 3px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Cards */
+    article.question-card {
+      max-width: var(--card-max-width);
+      margin-inline: auto;
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px solid var(--muted-border-color);
+      background: var(--card-background-color, var(--surface));
+    }
+
+    .question {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: .5rem;
+    }
+
+    /* Table Scroll but allow ~10 rows visible */
+    .table-scroll {
+      max-height: calc(1.75rem * var(--table-visible-rows));
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
 
     pre { margin: 0; white-space: pre-wrap; }
+
+    /* Loader */
     .spinner {
       width: 1rem; height: 1rem;
       border: 2px solid var(--muted-border-color);
@@ -25,6 +79,8 @@
       animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg);} }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 
@@ -35,7 +91,8 @@
     <p class="subtle">Multiple questions, auto-logged from Google Sheets.</p>
   </header>
 
-  <section id="questions" class="grid-cards"></section>
+  <div class="tabs" id="tab-buttons"></div>
+  <section id="tab-contents"></section>
 </main>
 
 <script>
@@ -51,29 +108,9 @@
   ];
 
   const escapeHTML = s => s.replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
-
-  function createCard(q) {
-    const el = document.createElement("article");
-    el.className = "question-card";
-    el.innerHTML = `
-      <header><div class="question">${escapeHTML(q.text)}</div></header>
-      <div class="status"><span class="spinner"></span> Loading answers…</div>
-      <div class="table-scroll hidden">
-        <table>
-          <caption>AI Answer Log</caption>
-          <thead><tr><th>#</th><th>Answer</th><th>Date</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>`;
-    return el;
-  }
-
-  // Merge multi-line rows based on balanced quotes
   function parseCSV(text) {
     const lines = text.trim().split(/\r?\n/).slice(1);
-    const rows = [];
-    let buffer = "";
-
+    const rows = []; let buffer = "";
     for (let line of lines) {
       if (buffer) line = buffer + "\n" + line;
       const quotes = (line.match(/"/g) || []).length;
@@ -82,7 +119,6 @@
     }
     return rows;
   }
-
   function splitAnswerDate(line) {
     const i = line.lastIndexOf(",");
     return [line.slice(0, i), line.slice(i + 1)];
@@ -100,8 +136,7 @@
 
       lines.forEach((line, i) => {
         let [ans, date] = splitAnswerDate(line);
-        ans = ans.replace(/^"|"$/g, ""); // remove only wrapping quotes
-
+        ans = ans.replace(/^"|"$/g, "");
         tbody.innerHTML += `
           <tr>
             <td>${i + 1}</td>
@@ -118,12 +153,41 @@
   }
 
   (function init() {
-    const root = document.getElementById("questions");
-    QUESTIONS.forEach(q => {
-      const card = createCard(q);
-      root.appendChild(card);
-      loadAnswers(card, q.sheetURL);
+    const tabButtons = document.getElementById("tab-buttons");
+    const tabContents = document.getElementById("tab-contents");
+
+    QUESTIONS.forEach((q, index) => {
+      // Tab button
+      const btn = document.createElement("button");
+      btn.textContent = `Question ${index+1}`;
+      btn.onclick = () => switchTab(index);
+      tabButtons.appendChild(btn);
+
+      // Card content
+      const content = document.createElement("section");
+      content.className = "tab-content";
+      content.innerHTML = `
+        <article class="question-card">
+          <div class="question">${escapeHTML(q.text)}</div>
+          <div class="status"><span class="spinner"></span> Loading answers…</div>
+          <div class="table-scroll hidden">
+            <table>
+              <thead><tr><th>#</th><th>Answer</th><th>Date</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </article>`;
+      tabContents.appendChild(content);
+
+      loadAnswers(content, q.sheetURL);
     });
+
+    function switchTab(i) {
+      document.querySelectorAll(".tabs button").forEach((b, j)=> b.classList.toggle("active", j===i));
+      document.querySelectorAll(".tab-content").forEach((c, j)=> c.classList.toggle("active", j===i));
+    }
+
+    switchTab(0);
   })();
 </script>
 
