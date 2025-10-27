@@ -15,6 +15,7 @@
     .table-scroll { max-height: 220px; overflow-y: auto; }
     .hidden { display: none !important; }
 
+    pre { margin: 0; white-space: pre-wrap; }
     .spinner {
       width: 1rem; height: 1rem;
       border: 2px solid var(--muted-border-color);
@@ -23,89 +24,108 @@
       display: inline-block;
       animation: spin 1s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin { to { transform: rotate(360deg);} }
   </style>
 </head>
+
 <body>
-  <main class="container">
-    <header>
-      <h1>AI Experiment Log</h1>
-      <p class="subtle">Multiple questions, auto-logged from Google Sheets.</p>
-    </header>
+<main class="container">
+  <header>
+    <h1>AI Experiment Log</h1>
+    <p class="subtle">Multiple questions, auto-logged from Google Sheets.</p>
+  </header>
 
-    <section id="questions" class="grid-cards"></section>
-  </main>
+  <section id="questions" class="grid-cards"></section>
+</main>
 
-  <script>
-    const QUESTIONS = [
-      {
-        text: "What is the largest number: 27483 or 27482?",
-        sheetURL:
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=0&single=true&output=csv"
-      },
-      {
-        text: "Write a Python function to return the square of a number. ",
-        sheetURL:
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=269864323&single=true&output=csv"
-      }
-    ];
-
-    const escapeHTML = (s) => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-
-    function createCard(q) {
-      const el = document.createElement("article");
-      el.className = "question-card";
-      el.innerHTML = `
-        <header><div class="question">${escapeHTML(q.text)}</div></header>
-        <div class="status"><span class="spinner"></span> Loading answers…</div>
-        <div class="table-scroll hidden">
-          <table>
-            <caption>AI Answer Log</caption>
-            <thead><tr><th>#</th><th>Answer</th><th>Date</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>`;
-      return el;
+<script>
+  const QUESTIONS = [
+    {
+      text: "What is the largest number: 27483 or 27482?",
+      sheetURL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=0&single=true&output=csv"
+    },
+    {
+      text: "Write a Python function to return the square of a number.",
+      sheetURL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=269864323&single=true&output=csv"
     }
+  ];
 
-    async function loadAnswers(card, url) {
-      const status = card.querySelector(".status");
-      const container = card.querySelector(".table-scroll");
-      const tbody = container.querySelector("tbody");
+  const escapeHTML = s => s.replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]));
 
-      try {
-        const text = await fetch(url + "&_=" + Date.now()).then(r => r.text());
-        const rows = text.trim().split(/\n/).slice(1);
-        if (!rows.length) return status.textContent = "No rows yet.";
+  function createCard(q) {
+    const el = document.createElement("article");
+    el.className = "question-card";
+    el.innerHTML = `
+      <header><div class="question">${escapeHTML(q.text)}</div></header>
+      <div class="status"><span class="spinner"></span> Loading answers…</div>
+      <div class="table-scroll hidden">
+        <table>
+          <caption>AI Answer Log</caption>
+          <thead><tr><th>#</th><th>Answer</th><th>Date</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>`;
+    return el;
+  }
 
-        rows.forEach((line, i) => {
-          const lastComma = line.lastIndexOf(",");
-          const ans = line.slice(0, lastComma);
-          const date = line.slice(lastComma + 1);
-        
-          tbody.innerHTML += `
-            <tr>
-              <td>${i+1}</td>
-              <td>${escapeHTML(ans)}</td>
-              <td>${escapeHTML(date)}</td>
-            </tr>`;
-        });
+  // Merge multi-line rows based on balanced quotes
+  function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/).slice(1);
+    const rows = [];
+    let buffer = "";
 
-        status.classList.add("hidden");
-        container.classList.remove("hidden");
-      } catch {
-        status.textContent = "Error loading data.";
-      }
+    for (let line of lines) {
+      if (buffer) line = buffer + "\n" + line;
+      const quotes = (line.match(/"/g) || []).length;
+      if (quotes % 2 === 0) { rows.push(line); buffer = ""; }
+      else buffer = line;
     }
+    return rows;
+  }
 
-    (function init() {
-      const root = document.getElementById("questions");
-      QUESTIONS.forEach(q => {
-        const card = createCard(q);
-        root.appendChild(card);
-        loadAnswers(card, q.sheetURL);
+  function splitAnswerDate(line) {
+    const i = line.lastIndexOf(",");
+    return [line.slice(0, i), line.slice(i + 1)];
+  }
+
+  async function loadAnswers(card, url) {
+    const status = card.querySelector(".status");
+    const container = card.querySelector(".table-scroll");
+    const tbody = container.querySelector("tbody");
+
+    try {
+      const csv = await fetch(url + "&_=" + Date.now()).then(r => r.text());
+      const lines = parseCSV(csv);
+      if (!lines.length) return status.textContent = "No rows yet.";
+
+      lines.forEach((line, i) => {
+        let [ans, date] = splitAnswerDate(line);
+        ans = ans.replace(/^"|"$/g, ""); // remove only wrapping quotes
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${i + 1}</td>
+            <td><pre>${escapeHTML(ans)}</pre></td>
+            <td>${escapeHTML(date)}</td>
+          </tr>`;
       });
-    })();
-  </script>
+
+      status.classList.add("hidden");
+      container.classList.remove("hidden");
+    } catch {
+      status.textContent = "Error loading data.";
+    }
+  }
+
+  (function init() {
+    const root = document.getElementById("questions");
+    QUESTIONS.forEach(q => {
+      const card = createCard(q);
+      root.appendChild(card);
+      loadAnswers(card, q.sheetURL);
+    });
+  })();
+</script>
+
 </body>
 </html>
