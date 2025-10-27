@@ -1,6 +1,6 @@
 # AI Experiments
 
-Most large language models  **GPT-5**) are **not deterministic** by default.  
+Most large language models (like **GPT-5**) are **not deterministic** by default.  
 They include controlled randomness (often called *temperature*) in how responses are generated.  
 This means even when you provide the **same prompt** under the **same conditions**, the model may produce **slightly different outputs**.
 
@@ -9,7 +9,7 @@ This means even when you provide the **same prompt** under the **same conditions
 ## Experiment 1 — Consistency Check
 
 **Question:**  
-> *Which number is larger: **27,483** or **27,482**?*
+> *What is the largest number: 27483 or 27482?*
 
 This seems trivial — but that's the point.  
 If a model is consistent, it should always respond the same way.
@@ -25,7 +25,7 @@ The experiment tracks whether the model:
 | Prompt | *"What is the largest number: 27483 or 27482?"* |
 | Schedule | Automated once per day |
 | Output Storage | Google Sheets |
-| Display Method | Static webpage reading CSV feed |
+| Display | Static webpage reading CSV feed |
 
 ---
 
@@ -40,6 +40,6 @@ We:
 ---
 
 
-## Live Results
+## Live Results - https://nodes-ro.github.io/AIExperiments/
 
-See the webpage that loads the daily log directly from the experiment sheet.  
+See the webpage that loads the daily log directly from the experiment sheet.
