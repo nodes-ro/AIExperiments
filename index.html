@@ -1,46 +1,162 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AI Experiment Log</title>
+  <!-- Pico.css (minimal CSS framework) -->
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css" />
   <style>
-    body { font-family: Arial, sans-serif; padding: 40px; }
-    table { border-collapse: collapse; width: 100%; max-width: 900px; }
-    th, td { border: 1px solid #aaa; padding: 8px; }
-    th { background: #eee; text-align: left; }
-    caption { margin-bottom: 10px; font-size: 1.4em; font-weight: bold; }
+    :root { --card-max-width: 900px; }
+    main.container { padding-block: 2rem 4rem; }
+    header { padding-block: 1.25rem 0.25rem; }
+    .grid-cards { display: grid; gap: 1.25rem; }
+    @media (min-width: 900px) { .grid-cards { grid-template-columns: 1fr; } }
+    article.question-card { max-width: var(--card-max-width); margin-inline: auto; }
+    .question { font-size: 1.1rem; font-weight: 700; margin-bottom: .25rem; }
+    .subtle { color: var(--muted-color); font-size: .95rem; }
+    table { width: 100%; }
+    caption { text-align: left; font-weight: 600; }
+    .status { display: inline-flex; align-items: center; gap: .5rem; }
+    .spinner { width: 1rem; height: 1rem; border: 2px solid var(--muted-border-color); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer { text-align: center; color: var(--muted-color); margin-top: 2rem; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
+  <main class="container">
+    <header>
+      <h1>AI Experiment Log</h1>
+      <p class="subtle">Multiple questions, each with a live answer log from Google Sheets (CSV publish).</p>
+    </header>
 
-<div class="question-block">
-  <strong>What is the largest number: 27483 or 27482?</strong>
-</div>
+    <section id="questions" class="grid-cards"></section>
 
-<table id="data-table">
-  <caption>AI Answer Log (Live)</caption>
-  <tr><th>Answer</th><th>Date</th></tr>
-</table>
+    <footer>
+      <small>Styled with <a href="https://picocss.com" target="_blank" rel="noopener">Pico.css</a></small>
+    </footer>
+  </main>
 
-<script>
-const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=0&single=true&output=csv";
+  <script>
+    // === Configure your questions here ===
+    const QUESTIONS = [
+      {
+        text: "What is the largest number: 27483 or 27482?",
+        sheetURL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXKtJnPba45mGoBCOkphmfIe1bS6gq3VIywNJtCcDhQYiGOHvc94LhFqkvyO1Q-pelZIzrIxv9X5KC/pub?gid=0&single=true&output=csv"
+      }
+      // Add more like:
+      // {
+      //   text: "...",
+      //   sheetURL: "https://.../output=csv"
+      // }
+    ];
 
-// Fetch CSV and display it
-fetch(sheetURL)
-  .then(res => res.text())
-  .then(csv => {
-    const rows = csv.trim().split("\n").slice(1); // skip header
-    const table = document.getElementById("data-table");
+    // Utility: safe text (very light sanitation for cell values)
+    const escapeHTML = (str) => String(str)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
 
-    rows.forEach(line => {
-      // split only on the first comma (your Answer text does not contain commas)
-      const [answer, date] = line.split(/,(.+)/);
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${answer}</td><td>${date}</td>`;
-      table.appendChild(tr);
-    });
-  });
-</script>
+    function buildCard({ text }) {
+      const article = document.createElement('article');
+      article.className = 'question-card';
+      article.innerHTML = `
+        <header>
+          <div class="question">${escapeHTML(text)}</div>
+        </header>
+        <div class="status" aria-live="polite">
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Loading answers…</span>
+        </div>
+        <table role="grid" class="hidden">
+          <caption>AI Answer Log (Live)</caption>
+          <thead>
+            <tr>
+              <th scope="col">Answer</th>
+              <th scope="col">Date</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      `;
+      return article;
+    }
 
+    async function fetchCSV(url) {
+      // cache-bust to help Sheets updates propagate
+      const sep = url.includes('?') ? '&' : '?';
+      const cacheBust = `${sep}_=${Date.now()}`;
+      const res = await fetch(url + cacheBust);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    }
+
+    function parseSimpleCSV(text) {
+      // Very small parser for two-column rows; assumes header in first line.
+      // Splits on first comma; supports answers that might include commas via quotes minimally.
+      const lines = text.trim().split(/\r?\n/);
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        // Try to split on the first comma only
+        const match = line.match(/^(?:\"([^\"]*)\"|([^,]*)),(.*)$/);
+        if (match) {
+          const answer = match[1] ?? match[2] ?? '';
+          const date = match[3] ?? '';
+          rows.push([answer, date]);
+        } else {
+          const [a, b] = line.split(/,(.+)/);
+          rows.push([a ?? '', b ?? '']);
+        }
+      }
+      return rows;
+    }
+
+    function populateTable(article, rows) {
+      const status = article.querySelector('.status');
+      const table = article.querySelector('table');
+      const tbody = table.querySelector('tbody');
+      tbody.innerHTML = '';
+
+      if (!rows.length) {
+        status.classList.remove('hidden');
+        status.innerHTML = '<span>No rows yet.</span>';
+        table.classList.add('hidden');
+        return;
+      }
+
+      for (const [answer, date] of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHTML(answer)}</td><td>${escapeHTML(date)}</td>`;
+        tbody.appendChild(tr);
+      }
+
+      status.classList.add('hidden');
+      table.classList.remove('hidden');
+    }
+
+    async function loadQuestion(container, q) {
+      const card = buildCard(q);
+      container.appendChild(card);
+
+      try {
+        const csv = await fetchCSV(q.sheetURL);
+        const rows = parseSimpleCSV(csv);
+        populateTable(card, rows);
+      } catch (err) {
+        const status = card.querySelector('.status');
+        status.innerHTML = `
+          <span>Could not load data. </span>
+          <small class="subtle">(${escapeHTML(err.message)})</small>
+        `;
+      }
+    }
+
+    (function init() {
+      const container = document.getElementById('questions');
+      QUESTIONS.forEach(q => loadQuestion(container, q));
+    })();
+  </script>
 </body>
 </html>
