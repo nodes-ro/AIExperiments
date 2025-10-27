@@ -19,30 +19,32 @@
 
     /* Tabs Layout */
     .tabs {
-      display: flex;
-      border-bottom: 2px solid var(--muted-border-color);
-      margin-bottom: 1rem;
-      overflow-x: auto;
-    }
-    .tabs button {
-      border: none;
-      padding: .75rem 1.25rem;
-      background: transparent;
-      cursor: pointer;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .tabs button.active {
-      border-bottom: 3px solid var(--primary);
-      color: var(--primary);
-    }
+  display: flex;
+  border-bottom: 1px solid var(--muted-border-color);
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  gap: .25rem;
+}
 
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
-    }
+.tabs button {
+  border: none;
+  background: none;
+  padding: .75rem 1.25rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--muted-color);
+  transition: color .25s, border-color .25s;
+  border-bottom: 3px solid transparent;
+}
+
+.tabs button:hover {
+  color: var(--primary);
+}
+
+.tabs button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
 
     /* Cards */
     article.question-card {
@@ -58,7 +60,9 @@
       font-size: 1.25rem;
       font-weight: 700;
       margin-bottom: .5rem;
+      color: var(--contrast); /* <-- This makes it readable in both themes */
     }
+
 
     /* Table Scroll but allow ~10 rows visible */
     .table-scroll {
